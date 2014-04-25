@@ -37,6 +37,9 @@ class Test(unittest.TestCase):
         
         # Test
         print event.getUser()
+        print event.getTime()
+        print event.getTimeEpoch()
+        print event.getEventType()
     
     def testMessageEventDB(self):
         # Setup
@@ -48,6 +51,7 @@ class Test(unittest.TestCase):
         # Test
         print event.getUser()
         print event.getTime()
+        print event.getTimeEpoch()
         print event.getMessage()
         print event.getTaggedMessage()
         
