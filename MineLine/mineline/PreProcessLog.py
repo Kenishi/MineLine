@@ -11,18 +11,6 @@ import time
 class PreProcessLog(object):
     
     @classmethod
-    def createSQLTableFromLineLog(cls, linelog, db_file):
-        conn = sqlite3.connect(db_file)
-        cur = conn.cursor()
-        
-        # Get timestamp in seconds from Epoch
-       
-        
-        
-        
-        
-    
-    @classmethod
     def createLineLogFromString(cls,data, saveTimeZone):
         log_list = cls.splitLines(data)
         log_list = cls.splitTabsAndCleanBlanks(log_list)
