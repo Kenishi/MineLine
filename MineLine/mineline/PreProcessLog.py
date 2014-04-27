@@ -23,7 +23,7 @@ class PreProcessLog(object):
         
     
     @classmethod
-    def createLineLogFromString(cls,data):
+    def createLineLogFromString(cls,data, saveTimeZone):
         log_list = cls.splitLines(data)
         log_list = cls.splitTabsAndCleanBlanks(log_list)
         log_list = cls.expandDates(log_list)
@@ -55,11 +55,11 @@ class PreProcessLog(object):
         return split_lines
     
     @classmethod
-    def expandDates(cls,log_list):
+    def expandDates(cls,log_list, saveTimeZone):
         current_date = None
         expanded_list = []
         for line in log_list:
-            if re.search('^[0-9]{,4}/[0-9]{,2}/[0-9]{,2}\(.+?\)', line[0]): # Check for start of new dday
+            if re.search('^[0-9]{,4}/[0-9]{,2}/[0-9]{,2}\(.+?\)', line[0]): # Check for start of new day
                 current_date = time.strptime(line[0],"%Y/%m/%d(%A)")
                 continue
             if re.search('^[0-9]{1,2}:[0-9]{1,2}', line[0]) != None:
@@ -68,10 +68,29 @@ class PreProcessLog(object):
                 else:
                     fixed_hour = cls.__fixHour(line[0])
                     line[0] = time.strftime("%Y/%m/%d",current_date) + " " + fixed_hour
+                    line[0] = cls.__convertToUTC(line[0], saveTimeZone)
             expanded_list.append(line)
         
         return expanded_list
         pass
+    
+    @classmethod
+    def __convertToUTC(cls, time, saveTimeZone):
+        '''
+        Convert the current string time from the specified timze zone into UTC timezone.
+        
+        time: This is a string with a time in format %Y/%m/%d %H:%M
+        saveTimeZone: This is a tzinfo for the timezone of the computer/phone that the log file was saved on.
+                        Ex: If the phone is set for EST at save, then this needs to be the EST tzinfo.
+        '''
+        import pytz, datetime
+        time_fmt = "%Y/%m/%d %H:%M"
+        
+        saved_time = datetime.datetime.strptime(time, time_fmt)
+        savedWithTZ = saveTimeZone.localize(saved_time)
+        saved_dt_utc = savedWithTZ.astimezone(pytz.utc)
+        utc_str = saved_dt_utc.strftime(time_fmt + " %Z")
+        return utc_str
     
     @classmethod
     def __fixHour(cls,time_str):
