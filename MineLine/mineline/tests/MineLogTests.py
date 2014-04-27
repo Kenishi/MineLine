@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
         
         # Setup
         loglist = [MessageEvent("John", "12/13/14 12:12", "Testing"),PhotoEvent("John","12/13/14")]
-        line = LineLog(loglist)
+        line = LineLog(loglist, "2014/01/01 13:00")
         
         # Exercise
         testFile = "./testPickle.data"
@@ -25,9 +25,11 @@ class Test(unittest.TestCase):
         
      
     def testGetUserEvents(self):
+        import pytz
         from mineline.LineLog import LineLog
+     
         # Setup
-        log = LineLog.fromFilename(self.filepath)
+        log = LineLog.fromFilename(self.filepath, pytz.timezone("Asia/Tokyo"))
         
         # Exercise
         count = 0
@@ -36,10 +38,11 @@ class Test(unittest.TestCase):
         print str(count)
     
     def testRealFile(self):
+        import pytz
         from mineline.LineLog import LineLog
         
         # Exercise & Test
-        LineLog.fromFilename(self.filepath)
+        #LineLog.fromFilename(self.filepath, pytz.timezone("Asia/Tokyo"))
     
     def testBaseEqual(self):
         from mineline.Events import PhotoEvent
@@ -47,7 +50,7 @@ class Test(unittest.TestCase):
         # Setup
         photo = PhotoEvent("John", "2013/05/23 12:00")
         photoMatch = PhotoEvent("John", "2013/05/23 12:00")
-        photoDiff = PhotoEvent("John", "2014/05/23 12:00")
+        photoDiff = PhotoEvent("John", "2014/05/23 12:01")
         
         # Exercise
         matchResult = (photo == photoMatch)
@@ -58,6 +61,7 @@ class Test(unittest.TestCase):
         self.assertFalse(diffResult == False)
         
     def testProcessLines(self):
+        import pytz
         from mineline.PreProcessLog import PreProcessLog
         from mineline.Events import MessageEvent
         # Setup
@@ -66,17 +70,18 @@ class Test(unittest.TestCase):
         "2013/05/25(Friday)\r\n"
         "14:25\tJohn\tHello?\r\n")
         
+        PreProcessLog.saveTimeZone = pytz.timezone("US/Eastern") # Set timezone so converTime() works
         data = PreProcessLog.splitLines(data)
         data = PreProcessLog.splitTabsAndCleanBlanks(data)
         data = PreProcessLog.convertTimes(data)
         
-        expectedData = [MessageEvent("John", "2013/05/23 12:48", "I think so too"),
-                        MessageEvent("John", "2013/05/25 14:25", "Hello?")]
+        expectedData = [MessageEvent("John", "2013/05/23 16:48 UTC", "I think so too"),
+                        MessageEvent("John", "2013/05/25 18:25 UTC", "Hello?")]
         # Exercise
-        log_list = PreProcessLog.processLines(data)
+        log_list, saveTime = PreProcessLog.processLines(data)
         
         # Test
-        self.assertEqual(log_list, expectedData, "Process Lines result differs from expected value.\nExpected:" + str(expectedData) + "\nActual:" + str(log_list))
+        self.assertEqual(log_list, expectedData)
 
     def testExpandDates(self):
         import pytz
@@ -97,7 +102,8 @@ class Test(unittest.TestCase):
         expectedData = [["2013/05/23 16:00 UTC","Bob","Some test text"],["2013/05/23 16:48 UTC","John","I think so too"],["2013/05/25 18:25 UTC","John","Hello?"],["2013/05/25 18:28 UTC","Bob","Yo what's up?"],["2013/05/25 18:29 UTC","John","Not much you?"]]
         
         # Exercise
-        testResult = PreProcessLog.convertTimes(data, pytz.timezone("US/Eastern"))
+        PreProcessLog.saveTimeZone = pytz.timezone("US/Eastern") # Set timezone so converTimes() works
+        testResult = PreProcessLog.convertTimes(data)
         
         # Test
         self.assertEqual(testResult, expectedData, "Expanded Date result did not match expected.\nExpected:" + str(expectedData) + "\nActual:" + str(testResult))
