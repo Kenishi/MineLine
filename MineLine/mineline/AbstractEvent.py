@@ -19,7 +19,7 @@ class AbstractEvent(object):
     
     def getTimeAsStruct(self):
         import time
-        out = time.strptime(self.__time,"%Y/%m/%d %H:%M")
+        out = time.strptime(self.__time,"%Y/%m/%d %H:%M UTC")
         return out
     
     def getTime(self):
@@ -37,3 +37,7 @@ class AbstractEvent(object):
         if not other.getTime() == self.__time:
             return False
         return True 
+    
+    def __str__(self):
+        str = self.getEventType() + " " + self.getTime() + " " + self.getUser()
+        return str
