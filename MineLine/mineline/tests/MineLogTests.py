@@ -68,7 +68,7 @@ class Test(unittest.TestCase):
         
         data = PreProcessLog.splitLines(data)
         data = PreProcessLog.splitTabsAndCleanBlanks(data)
-        data = PreProcessLog.expandDates(data)
+        data = PreProcessLog.convertTimes(data)
         
         expectedData = [MessageEvent("John", "2013/05/23 12:48", "I think so too"),
                         MessageEvent("John", "2013/05/25 14:25", "Hello?")]
@@ -97,7 +97,7 @@ class Test(unittest.TestCase):
         expectedData = [["2013/05/23 16:00 UTC","Bob","Some test text"],["2013/05/23 16:48 UTC","John","I think so too"],["2013/05/25 18:25 UTC","John","Hello?"],["2013/05/25 18:28 UTC","Bob","Yo what's up?"],["2013/05/25 18:29 UTC","John","Not much you?"]]
         
         # Exercise
-        testResult = PreProcessLog.expandDates(data, pytz.timezone("US/Eastern"))
+        testResult = PreProcessLog.convertTimes(data, pytz.timezone("US/Eastern"))
         
         # Test
         self.assertEqual(testResult, expectedData, "Expanded Date result did not match expected.\nExpected:" + str(expectedData) + "\nActual:" + str(testResult))

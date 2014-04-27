@@ -11,18 +11,33 @@ import time
 class PreProcessLog(object):
     
     @classmethod
-    def createLineLogFromString(cls,data, saveTimeZone):
+    def processLog(cls, data, saveTimeZone):
+        '''
+        Takes a log from LINE and parses it into a list of events.
+        
+        data should be the log as a string.
+        saveTimeZone should be a tzinfo representing the timezone of the phone/computer at the time the log
+            was created. Without this its impossible to know the timezone and impossible to correctly change
+            the times to UTC.
+        
+        Returns a tuple which contains a list() of events and a string noting the time when the log was saved
+            based on the timestamp present at the start of the log.
+        '''
         log_list = cls.splitLines(data)
         log_list = cls.splitTabsAndCleanBlanks(log_list)
-        log_list = cls.expandDates(log_list)
-        processed_log, saveTime = cls.processLines(log_list)
+        log_list = cls.convertTimes(log_list)
+        processed_log, logSaveTime = cls.processLines(log_list)
         
-        from mineline.LineLog import LineLog
-        return LineLog(processed_log, saveTime)
+        return (processed_log, logSaveTime)
         pass
     
     @classmethod
     def splitLines(cls, data_str):
+        '''
+        Breaks the string at CRLFs and builds a list
+        
+        Returns a list where each entry is an event.
+        '''
         split_line = data_str.split('\r\n')
         if len(split_line) > 0:
             del split_line[len(split_line)-1]
@@ -35,6 +50,8 @@ class PreProcessLog(object):
         '''
         Split a line along the tabs.
         Remove any lines that are blank
+        
+        Returns the modified log_list with each entry in the log_list being a list for the parts of the event.
         '''
         split_lines = list()
         for line in log_list:
@@ -43,7 +60,16 @@ class PreProcessLog(object):
         return split_lines
     
     @classmethod
-    def expandDates(cls,log_list, saveTimeZone):
+    def convertTimes(cls, log_list, saveTimeZone):
+        '''
+        Goes through the list adding the date to each event/line and converting each time to UTC. This function will fail
+            if splitLines() and splitTabs..() have not been called on it already.
+        
+        log_list: This is a list with lines and tabs already split
+        saveTimeZone: This is a tzinfo representing the timezone of the phone/computer at the time this log was saved.
+        
+        Returns the modified log_list with all times converted.
+        '''
         current_date = None
         expanded_list = []
         for line in log_list:
@@ -82,6 +108,13 @@ class PreProcessLog(object):
     
     @classmethod
     def __fixHour(cls,time_str):
+        '''
+        LINE saves times in the nonstandard form of 1-24 hours. This simply changes 24 to 0
+        
+        time_str: The time as a string, to fix. Format "HH:MM"
+        
+        Returns a string with the time fixed if it needed it. Otherwise, its just the same string. 
+        '''
         match = re.search(r'(?P<hour>[0-9]{,2})(?P<rest>:[0-9]{,2})',time_str)
         hour = match.group("hour")
         rest = match.group("rest")
@@ -90,7 +123,15 @@ class PreProcessLog(object):
         return hour + rest
     
     @classmethod    
-    def processLines(cls,log_list):
+    def processLines(cls, log_list):
+        '''
+        This function processes the log_list convertin each event into its representative Event object.
+        
+        This function will fail if splitLines(), splitTabs..(), and convertTimes() have not already
+            been called (in that order).
+            
+        Returns a list where the strings have been converted into their Events.
+        '''
         processed_list = []
         saveTime = None
         for line in log_list:

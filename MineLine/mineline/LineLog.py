@@ -11,18 +11,20 @@ class LineLog(object):
         self.__saveTime = saveTime
         pass
     
-    @staticmethod
-    def fromString(unproc_str):
-        return PreProcessLog.createLineLogFromString(unproc_str)
+    @classmethod
+    def fromString(cls, unprocessed_str, savedTimeZone):
+        processed_log, logSaveTime = PreProcessLog.processLog(unprocessed_str, savedTimeZone)
+        return cls(processed_log, logSaveTime)
     
-    @staticmethod
-    def fromFilename(filepath):
+    @classmethod
+    def fromFilename(cls, filepath, savedTimeZone):
         # Open log file and read in data
         with open(filepath) as logfile:
             unprocessed_str = logfile.read()
         
             # Process for log objects
-            return PreProcessLog.createLineLogFromString(unprocessed_str)
+            processed_log, logSaveTime =  PreProcessLog.processLog(unprocessed_str, savedTimeZone)
+            return cls(processed_log, logSaveTime)
         pass
     
     @staticmethod
