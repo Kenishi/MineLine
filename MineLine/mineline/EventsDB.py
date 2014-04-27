@@ -43,7 +43,9 @@ class AbstractEventDB(AbstractEvent):
         import time
         secs = int(secs)
         time_struct = time.gmtime(secs)
-        time_str = time.strftime("%Y/%m/%d %H:%M", time_struct)
+        
+        # 'UTC' hardcoded because Python lib can't properly handle timezones w/ %Z flag
+        time_str = time.strftime("%Y/%m/%d %H:%M UTC", time_struct)
         return time_str
 
 class MessageEventDB(MessageEvent, AbstractEventDB):
@@ -70,7 +72,7 @@ class InviteEventDB(InviteEvent, AbstractEventDB):
     def fromRowResult(cls, row):
         event = AbstractEventDB.fromRowResult(row)
         invited_user = InviteEvent.fromJSON_getInvitedUser(row['content'])
-        return cls(user=event.getUser(), time=event.getTime(), invited_user)
+        return cls(event.getUser(), event.getTime(), invited_user)
     pass
 
 class JoinedChatEventDB(JoinedChatEvent, AbstractEventDB):
@@ -106,3 +108,7 @@ class ChangeGroupNameEventDB(ChangeGroupNameEvent, AbstractEventDB):
         return cls(event.getUser(), event.getTime(), newname)
     
     pass
+
+class EnumEventsDB:
+    events = (MessageEventDB, InviteEventDB, JoinedChatEventDB, LeaveChatEventDB, PhotoEventDB, StickerEventDB,
+                VideoEventDB, FileEventDB, AudioEventDB, ChangeGroupNameEventDB)

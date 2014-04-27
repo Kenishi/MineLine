@@ -9,16 +9,17 @@ import time
 import nltk
 from nltk.tokenize import word_tokenize
 from mineline.Events import *
+from mineline.EventsDB import *
 
 class LineLogDB(object):
     '''
-    classdocs
+    The class interface for a LineLog SQL DB.
     '''
-    
-    
     def __init__(self, db_file):
         '''
         Constructor
+        
+        db_file should be a string filepath pointing to where the DB file is or should be created.
         '''
         
         self.__conn = sqlite3.connect(db_file)
@@ -29,14 +30,18 @@ class LineLogDB(object):
         '''
         Get all events of an event type.
         
-        events: List of events as their type()
+        events: Should be a list() of class events. Either base event (ex: MessageEvent) or
+                    their database representation class (ex: MessageEventDB) will work.
         Returns matching events as a list of dictionaries for each event
         '''
         
-        # Convert base events to their string event type
+        # Convert base events to their string event type. 
         event_str = []
         for event in events:
-            event_str.append(event.getEventType())
+            isRealEvent = (event in EnumEventsDB.events or event in EnumEvents.events)
+            isDuplicate = (event.getEventType() in event_str)
+            if isRealEvent and not isDuplicate: 
+                event_str.append(event.getEventType())
         
         cursor = self.__conn.cursor()
         
@@ -61,7 +66,7 @@ class LineLogDB(object):
         '''
         cursor = self.__conn.cursor()
         
-        # Create a new log table and delete the old one. Show 
+        # Create a new log table and delete the old one if this one is newer, otherwise show error message.
         if not self.__logTableExists():
             self.__createLogTable()
         else:
@@ -104,10 +109,15 @@ class LineLogDB(object):
         events = []
         for row in rows:
             event_type = row['event_type']
-            if event_type == MessageEvent.getEventType():
-                events.append(MessageEvent())
+            # Find the matching event type and rewrap
+            for event_class in EnumEventsDB.events:
+                if event_type == event_class.getEventType():
+                    events.append(event_class.fromRowResult(row))
+        return events
+                
     
     def __initDB(self):
+        self.__conn.row_factory = sqlite3.Row
         cursor = self.__conn.cursor()
         
         # Create table_info if it doesn't exist
@@ -136,6 +146,8 @@ class LineLogDB(object):
         pass
     
     def __convertLineLogTimes(self,linelog):
+        ''' Convert the LineLog's internal times to epochs and return in a tuple '''
+        
         # Get the linelog's details
         created = linelog.getLogTimeStamp()
         first_event = linelog.getFirstEventDate()
@@ -157,7 +169,9 @@ class LineLogDB(object):
             time: Time of the event as epoch in an integer
             user: The username of the person who generated the event
             event_type: String representing the event type
-            content: A data field which may hold additional information connected to the event.
+            content: For MessageEvents this is the untagged message string.
+                     For InviteEvents this is will hold the invited_user's name in a JSON object.
+                     For ChangeGroup..Events this will hold the new group name in a JSON object.
                      This data is returned in a JSON String
             tagged_str: For message events this holds the message after its been Part-Of-Speech tagged
         '''
@@ -168,15 +182,18 @@ class LineLogDB(object):
         tagged_str = ""
         
         if type(event) is MessageEvent:
-            tagged_str = nltk.pos_tag(word_tokenize(event.getMessage()))
+            content = event.getMessage()
+            tagged_str = nltk.pos_tag(word_tokenize(content))
         elif event.hasJSONContent():
             content = event.json_out()
         
         return (time, user, event_type, content, tagged_str)
     
     def __getEpochTimeStamp(self, timestr):
+        import calendar
+
         time_struct = time.strptime(timestr, "%Y/%m/%d %H:%M")
-        timestamp = time.mktime(time_struct)
+        timestamp = calendar.timegm(time_struct)
         return int(timestamp)
         pass
     

@@ -9,6 +9,7 @@ class Test(unittest.TestCase):
     filepath = "/Users/Kei/Documents/[LINE] Chat in Climate Shockin'.txt"
        
     def testPickle(self):
+        import os
         from mineline.Events import MessageEvent, PhotoEvent
         from mineline.LineLog import LineLog
         
@@ -20,9 +21,10 @@ class Test(unittest.TestCase):
         testFile = "./testPickle.data"
         line.pickleLog(testFile)
         testLine = LineLog.fromPickle(testFile)
+        os.remove(testFile)
         
+        # Test
         self.assertEqual(line, testLine)
-        
      
     def testGetUserEvents(self):
         import pytz

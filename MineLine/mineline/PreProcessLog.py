@@ -4,7 +4,6 @@ Created on Mar 7, 2014
 @author: Kei
 '''
 import re
-import sqlite3
 from mineline.Events import *
 import time
 
@@ -23,6 +22,8 @@ class PreProcessLog(object):
         Returns a tuple which contains a list() of events and a string noting the time when the log was saved
             based on the timestamp present at the start of the log.
         '''
+        cls.saveTimeZone = saveTimeZone
+        
         log_list = cls.splitLines(data)
         log_list = cls.splitTabsAndCleanBlanks(log_list)
         log_list = cls.convertTimes(log_list)
@@ -60,7 +61,7 @@ class PreProcessLog(object):
         return split_lines
     
     @classmethod
-    def convertTimes(cls, log_list, saveTimeZone):
+    def convertTimes(cls, log_list):
         '''
         Goes through the list adding the date to each event/line and converting each time to UTC. This function will fail
             if splitLines() and splitTabs..() have not been called on it already.
@@ -82,14 +83,14 @@ class PreProcessLog(object):
                 else:
                     fixed_hour = cls.__fixHour(line[0])
                     line[0] = time.strftime("%Y/%m/%d",current_date) + " " + fixed_hour
-                    line[0] = cls.__convertToUTC(line[0], saveTimeZone)
+                    line[0] = cls.__convertToUTC(line[0])
             expanded_list.append(line)
         
         return expanded_list
         pass
     
     @classmethod
-    def __convertToUTC(cls, time, saveTimeZone):
+    def __convertToUTC(cls, time):
         '''
         Convert the current string time from the specified timze zone into UTC timezone.
         
@@ -101,7 +102,7 @@ class PreProcessLog(object):
         time_fmt = "%Y/%m/%d %H:%M"
         
         saved_time = datetime.datetime.strptime(time, time_fmt)
-        savedWithTZ = saveTimeZone.localize(saved_time)
+        savedWithTZ = cls.saveTimeZone.localize(saved_time)
         saved_dt_utc = savedWithTZ.astimezone(pytz.utc)
         utc_str = saved_dt_utc.strftime(time_fmt + " %Z")
         return utc_str
@@ -150,7 +151,7 @@ class PreProcessLog(object):
             
             if processed_line != None:
                 processed_list.append(processed_line)
-        return ((processed_list),saveTime)
+        return (processed_list, saveTime)
     
     @classmethod
     def processNonMessageEvents(cls,line):
@@ -213,6 +214,7 @@ class PreProcessLog(object):
     def processSaveTime(cls, line):
         line = "".join(line)
         timeStr = re.search('^(?:Saved time).+?(?P<time>[0-9]{,4}/.+?)$',line).group("time")
+        timeStr = cls.__convertToUTC(timeStr)
         return timeStr
     
     @classmethod

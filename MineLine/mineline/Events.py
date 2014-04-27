@@ -26,6 +26,7 @@ class MessageEvent(AbstractEvent):
         if not other.getMessage() == self.__message:
             return False
         return True
+    pass
  
 class InviteEvent(AbstractEvent):
     __invited_user = ""
