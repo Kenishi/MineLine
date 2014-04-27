@@ -27,7 +27,6 @@ class Test(unittest.TestCase):
         
         linelog = LineLog(msg_list, "2014/01/02 13:00")
         
-        os.remove(self.TestDBPath)
         logDB = LineLogDB(self.TestDBPath)
 
         # Exercise
