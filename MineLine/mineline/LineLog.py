@@ -91,11 +91,11 @@ class LineLog(object):
         include: Should be a list of type() events to include in the yield.
         '''
         for event in self.__log__:
-            if exclude and type(event) in exclude:
-                continue
-            elif include and type(event) not in include:
-                continue
             if event.getUser() == user:
+                if exclude and (type(event) in exclude):
+                    continue
+                elif include and (type(event) not in include):
+                    continue
                 yield event
     
     def getUserNames(self):
