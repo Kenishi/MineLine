@@ -92,9 +92,9 @@ class LineLog(object):
         '''
         for event in self.__log__:
             if event.getUser() == user:
-                if exclude and (type(event) in exclude):
+                if exclude and (type(event) in exclude): # Event is in exclude, skip
                     continue
-                elif include and (type(event) not in include):
+                elif include and (type(event) not in include): # Event isn't in include, skip
                     continue
                 yield event
     
@@ -126,7 +126,8 @@ class LineLog(object):
     
     def countUserEvents(self, users=None,events=None):
         '''
-        Returns a tuple ( List of Users, Events as the order they appear in 
+        Returns a pair tuple containing a 2-D list of users plus a count
+            for each event. The other part of the tuple tells the  
         '''        
         # Prepare headers and Fill events if empty
         if events:
