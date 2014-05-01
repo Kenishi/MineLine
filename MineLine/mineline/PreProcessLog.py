@@ -4,10 +4,16 @@ Created on Mar 7, 2014
 @author: Kei
 '''
 import re
-from mineline.Events import *
 import time
+from mineline.Events import *
+
 
 class PreProcessLog(object):
+    """
+    When the edge case limit is reached during log processing, a ParsingError will be fired
+    and indicate that the file is likely not a log.
+    """
+    EDGECASE_LIMIT = 10  
     
     @classmethod
     def processLog(cls, data, saveTimeZone):
@@ -135,6 +141,7 @@ class PreProcessLog(object):
         '''
         processed_list = []
         saveTime = None
+        edge_count = 0
         for line in log_list:
             processed_line = None
             
@@ -147,7 +154,11 @@ class PreProcessLog(object):
             elif cls.isKnownEdgeCase(line):
                 pass
             else:
-                print "Edge case detected: [" + str(log_list.index(line)) +'] ' + str(line)
+                if edge_count < cls.EDGECASE_LIMIT:
+                    print "Edge case detected: [" + str(log_list.index(line)) +'] ' + str(line)
+                else:
+                    raise ParsingError("Edge case limit reached. Please check the file you selected, it may not be a LINE log." +
+                                       " If this is incorrect, please file a bug report and include the log file.")
             
             if processed_line != None:
                 processed_list.append(processed_line)
