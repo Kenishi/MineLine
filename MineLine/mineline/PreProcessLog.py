@@ -16,7 +16,7 @@ class PreProcessLog(object):
     EDGECASE_LIMIT = 10  
     
     @classmethod
-    def processLog(cls, data, saveTimeZone):
+    def processLog(cls, data, saveTimeZone, progressCallback=None):
         '''
         Takes a log from LINE and parses it into a list of events.
         
@@ -29,10 +29,12 @@ class PreProcessLog(object):
             based on the timestamp present at the start of the log.
         '''
         cls.saveTimeZone = saveTimeZone
+        cls.progressCallback = progressCallback
         
         log_list = cls.splitLines(data)
         log_list = cls.splitTabsAndCleanBlanks(log_list)
         log_list = cls.convertTimes(log_list)
+        
         processed_log, logSaveTime = cls.processLines(log_list)
         
         return (processed_log, logSaveTime)
@@ -45,6 +47,7 @@ class PreProcessLog(object):
         
         Returns a list where each entry is an event.
         '''
+        cls.progressCallback("Splitting lines. Sorry no progress for this. Please wait.", 99, 100)
         split_line = data_str.split('\r\n')
         if len(split_line) > 0:
             del split_line[len(split_line)-1]
@@ -61,7 +64,11 @@ class PreProcessLog(object):
         Returns the modified log_list with each entry in the log_list being a list for the parts of the event.
         '''
         split_lines = list()
+        progressCount = 0
         for line in log_list:
+            progressCount += 1
+            cls.updateProgress("Splitting at Tabs.", progressCount, len(log_list))
+            
             if len(line) > 0: # Only add lines with content
                 split_lines.append(line.split('\t'))
         return split_lines
@@ -79,7 +86,11 @@ class PreProcessLog(object):
         '''
         current_date = None
         expanded_list = []
+        progressCount = 0
         for line in log_list:
+            progressCount += 1
+            cls.updateProgress("Converting Times", progressCount, len(log_list))
+            
             if re.search('^[0-9]{,4}/[0-9]{,2}/[0-9]{,2}\(.+?\)', line[0]): # Check for start of new day
                 current_date = time.strptime(line[0],"%Y/%m/%d(%A)")
                 continue
@@ -141,10 +152,13 @@ class PreProcessLog(object):
         '''
         processed_list = []
         saveTime = None
+        progressCount = 0
         edge_count = 0
         for line in log_list:
-            processed_line = None
+            progressCount += 1
+            cls.updateProgress("Processing log", progressCount, len(log_list))
             
+            processed_line = None
             if len(line) >= 3: # 3 sections indicates likely Message
                 processed_line = cls.processMessageEvents(line)
             elif len(line) == 2: # 2 sections indicates likely Non-Message
@@ -227,6 +241,12 @@ class PreProcessLog(object):
         timeStr = re.search('^(?:Saved time).+?(?P<time>[0-9]{,4}/.+?)$',line).group("time")
         timeStr = cls.__convertToUTC(timeStr)
         return timeStr
+    
+    @classmethod
+    def updateProgress(cls, msg, cur, finish):
+        if cls.progressCallback:
+            progress = {'msg':msg, 'cur':cur, 'finish':finish}
+            cls.progressCallback(msg, cur, finish)
     
     @classmethod
     def isSaveTimeStamp(cls, line):

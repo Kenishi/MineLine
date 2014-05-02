@@ -12,18 +12,18 @@ class LineLog(object):
         pass
     
     @classmethod
-    def fromString(cls, unprocessed_str, savedTimeZone):
+    def fromString(cls, unprocessed_str, savedTimeZone, progressCallback=None):
         processed_log, logSaveTime = PreProcessLog.processLog(unprocessed_str, savedTimeZone)
         return cls(processed_log, logSaveTime)
     
     @classmethod
-    def fromFilename(cls, filepath, savedTimeZone):
+    def fromFilename(cls, filepath, savedTimeZone, progressCallback=None):
         # Open log file and read in data
         with open(filepath) as logfile:
             unprocessed_str = logfile.read()
         
             # Process for log objects
-            processed_log, logSaveTime =  PreProcessLog.processLog(unprocessed_str, savedTimeZone)
+            processed_log, logSaveTime =  PreProcessLog.processLog(unprocessed_str, savedTimeZone, progressCallback)
             return cls(processed_log, logSaveTime)
         pass
     
