@@ -9,6 +9,13 @@ from mineline.Events import *
 
 
 class PreProcessLog(object):
+    '''
+    This class is used for importing LINE text log files. This class does the bulk parsing of the log.
+    
+    The main access to this class should be through processLog()
+    '''
+    
+    
     """
     When the edge case limit is reached during log processing, a ParsingError will be fired
     and indicate that the file is likely not a log.
@@ -121,8 +128,7 @@ class PreProcessLog(object):
         saved_time = datetime.datetime.strptime(time, time_fmt)
         savedWithTZ = cls.saveTimeZone.localize(saved_time)
         saved_dt_utc = savedWithTZ.astimezone(pytz.utc)
-        utc_str = saved_dt_utc.strftime(time_fmt + " %Z")
-        return utc_str
+        return saved_dt_utc
     
     @classmethod
     def __fixHour(cls,time_str):
@@ -239,13 +245,12 @@ class PreProcessLog(object):
     def processSaveTime(cls, line):
         line = "".join(line)
         timeStr = re.search('^(?:Saved time).+?(?P<time>[0-9]{,4}/.+?)$',line).group("time")
-        timeStr = cls.__convertToUTC(timeStr)
-        return timeStr
+        time_dt = cls.__convertToUTC(timeStr)
+        return time_dt
     
     @classmethod
     def updateProgress(cls, msg, cur, finish):
         if cls.progressCallback:
-            progress = {'msg':msg, 'cur':cur, 'finish':finish}
             cls.progressCallback(msg, cur, finish)
     
     @classmethod

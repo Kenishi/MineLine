@@ -27,26 +27,24 @@ class AbstractEventDB(AbstractEvent):
     @classmethod   
     def fromRowResult(cls,row):
         cls.__user = row['user']
-        cls.__time = cls.convertEpochToStr(row['time'])
+        cls.__time = cls.convertEpochToDateTime(row['time'])
         cls.__time_epoch = row['time']
         self = cls(cls.__user, cls.__time)
         return self
             
     @staticmethod
-    def convertEpochToStr(secs):
+    def convertEpochToDateTime(secs):
         '''
         Change a time in epoch seconds to its string representation.
         
         secs: An integer with an epoch timestamp
         Returns the time as a string in Year/Month/Date 24h:Minute
         '''
-        import time
+        import datetime, pytz
         secs = int(secs)
-        time_struct = time.gmtime(secs)
-        
-        # 'UTC' hardcoded because Python lib can't properly handle timezones w/ %Z flag
-        time_str = time.strftime("%Y/%m/%d %H:%M UTC", time_struct)
-        return time_str
+        utc_dt = datetime.datetime.utcfromtimestamp(secs)
+        utc_dt = pytz.utc.localize(utc_dt)
+        return utc_dt
 
 class MessageEventDB(MessageEvent, AbstractEventDB):
     def __init__(self, user, time, msg, pos_msg):

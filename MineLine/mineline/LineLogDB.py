@@ -12,21 +12,28 @@ from mineline.Events import *
 from mineline.EventsDB import *
 
 class LineLogDB(object):
-    '''
-    The class interface for a LineLog SQL DB.
-    '''
-    def __init__(self, db_file):
+    
+    """The class interface for a LineLog SQL DB."""
+    
+    def __init__(self, db_file, progressCallback=None):
+        
         '''
         Constructor
         
         db_file should be a string filepath pointing to where the DB file is or should be created.
+        
+        The progressCallback is a function reference to a method that will be called during expected
+        long processing moments.
+        The callback will expect a call sign of (str Message, int Current value, int  Max Value).
         '''
         
         self.__conn = sqlite3.connect(db_file)
         self.__initDB()
+        self.__progressCallback = progressCallback
         pass
     
     def getEvents(self,events):
+        
         '''
         Get all events of an event type.
         
@@ -64,6 +71,7 @@ class LineLogDB(object):
         '''
         Add a current LineLog to the DB
         '''
+        
         cursor = self.__conn.cursor()
         
         # Create a new log table and delete the old one if this one is newer, otherwise show error message.
@@ -86,7 +94,12 @@ class LineLogDB(object):
         self.__UpdateTableInfo("log", created, first_event, last_event, event_count)
         
         # Add events to the log table
+        progressCount = 0
+        progressMax = linelog.getEventCount
         for event in linelog.getEvents():
+            progressCount += 1
+            self.__updateProgress("Converting to SQL DB", progressCount, progressMax)
+            
             time, user, event_type, content, tagged_str = self.__gatherRowValuesFromEvent(event)
             
             sql = """INSERT INTO log (time, user, event_type, content, content_pos_tag) 
@@ -189,10 +202,17 @@ class LineLogDB(object):
         
         return (time, user, event_type, content, tagged_str)
     
-    def __getEpochTimeStamp(self, timestr):
+    def __getEpochTimeStamp(self, time_dt):
+        '''
+        Converts the time to Unix Epoch time.
+        
+        Returns an int of the epoch time.
+        time_dt should be a datetime structure already in UTC timezone.
+        '''
+        
         import calendar
-
-        time_struct = time.strptime(timestr, "%Y/%m/%d %H:%M")
+        
+        time_struct = time_dt.timetuple()
         timestamp = calendar.timegm(time_struct)
         return int(timestamp)
         pass
@@ -208,7 +228,7 @@ class LineLogDB(object):
             sql = "SELECT created FROM table_info WHERE tbl_name='log'"
             cursor.execute(sql)
             row = cursor.fetchone()
-            stored_timestamp = int(row[0])
+            stored_timestamp =   int(row[0])
             if timestamp > stored_timestamp:
                 return True
             else:
@@ -241,3 +261,7 @@ class LineLogDB(object):
                  event_type TEXT NOT NULL, content TEXT, content_pos_tag TEXT)"""
         cursor.execute(sql)
         self.__conn.commit()        
+    
+    def __updateProgress(self, msg, cur, finish):
+        if self.__progressCallback:
+            self.__progressCallback(msg, cur, finish)

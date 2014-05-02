@@ -3,7 +3,7 @@ from mineline.Events import *
 
 class LineLog(object):
     __log__ = list() # List containing each line in the log
-    __saveTime = None # String of timestamp for when the log was saved
+    __saveTime = None # Datetime struct in UTC timezone for when log was saved
     
     def __init__(self,log_list, saveTime):
         assert log_list != None
@@ -50,7 +50,7 @@ class LineLog(object):
         '''
         Return the timestamp of when the original text log was saved.
         
-        This method returns the timestamp as a string in the format YYYY/MM/DD HH:MM
+        This method returns the timestamp as a datetime struct in UTC timezone
         '''
         return self.__saveTime
     
@@ -66,7 +66,7 @@ class LineLog(object):
         '''
         Return the time of the first event in the log.
         
-        This method returns the time as a string in the format YYYY/MM/DD HH:MM
+        This method returns the time as a datetime struct in UTC timezone
         '''
         first_event = self.__log__[0]
         return first_event.getTime()
@@ -75,7 +75,7 @@ class LineLog(object):
         '''
         Return the time of the last event in the log.
         
-        This method returns the time as a string in the format YYYY/MM/DD HH:MM
+        This method returns the time as a datetime struct in UTC timezone
         '''
         last_event = self.__log__[-1]
         return last_event.getTime()
