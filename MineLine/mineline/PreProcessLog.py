@@ -5,10 +5,13 @@ Created on Mar 7, 2014
 '''
 import re
 import time
+
+from PyQt4 import QtCore
 from mineline.Events import *
 
 
-class PreProcessLog(object):
+
+class PreProcessLog(QtCore.QObject):
     '''
     This class is used for importing LINE text log files. This class does the bulk parsing of the log.
     
@@ -54,7 +57,7 @@ class PreProcessLog(object):
         
         Returns a list where each entry is an event.
         '''
-        cls.progressCallback("Splitting lines. Sorry no progress for this. Please wait.", 99, 100)
+        cls.updateProgress("Splitting lines. Sorry no progress for this. Please wait.", 99, 100)
         split_line = data_str.split('\r\n')
         if len(split_line) > 0:
             del split_line[len(split_line)-1]
@@ -251,7 +254,7 @@ class PreProcessLog(object):
     @classmethod
     def updateProgress(cls, msg, cur, finish):
         if cls.progressCallback:
-            cls.progressCallback(msg, cur, finish)
+            cls.progressCallback.update(msg, cur, finish)
     
     @classmethod
     def isSaveTimeStamp(cls, line):

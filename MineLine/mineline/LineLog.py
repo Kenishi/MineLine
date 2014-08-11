@@ -1,3 +1,4 @@
+import codecs
 from mineline.PreProcessLog import PreProcessLog
 from mineline.Events import *
 
@@ -19,7 +20,8 @@ class LineLog(object):
     @classmethod
     def fromFilename(cls, filepath, savedTimeZone, progressCallback=None):
         # Open log file and read in data
-        with open(filepath) as logfile:
+        f = codecs.open(filepath, 'r', encoding='utf-8')
+        with f as logfile:
             unprocessed_str = logfile.read()
         
             # Process for log objects

@@ -7,6 +7,9 @@ Created on Mar 24, 2014
 import sqlite3
 import time
 import nltk
+
+from PyQt4 import QtCore
+
 from nltk.tokenize import word_tokenize
 from mineline.Events import *
 from mineline.EventsDB import *
@@ -15,7 +18,7 @@ class LineLogDB(object):
     
     """The class interface for a LineLog SQL DB."""
     
-    def __init__(self, db_file, progressCallback=None):
+    def __init__(self, db_file):
         
         '''
         Constructor
@@ -27,9 +30,9 @@ class LineLogDB(object):
         The callback will expect a call sign of (str Message, int Current value, int  Max Value).
         '''
         
+        self.db_fileLocation = db_file
         self.__conn = sqlite3.connect(db_file)
         self.__initDB()
-        self.__progressCallback = progressCallback
         pass
     
     def getEvents(self,events):
@@ -67,7 +70,7 @@ class LineLogDB(object):
         
         return results
     
-    def addLineLog(self, linelog):
+    def addLineLog(self, linelog, progressCallback=None, finishCallback=None):
         '''
         Add a current LineLog to the DB
         '''
@@ -94,22 +97,27 @@ class LineLogDB(object):
         self.__UpdateTableInfo("log", created, first_event, last_event, event_count)
         
         # Add events to the log table
-        progressCount = 0
-        progressMax = linelog.getEventCount
-        for event in linelog.getEvents():
-            progressCount += 1
-            self.__updateProgress("Converting to SQL DB", progressCount, progressMax)
+        self.converterThread = ConverterThread(self.db_fileLocation, linelog, progressCallback, finishCallback)
+        self.converterThread.start()
             
-            time, user, event_type, content, tagged_str = self.__gatherRowValuesFromEvent(event)
-            
-            sql = """INSERT INTO log (time, user, event_type, content, content_pos_tag) 
-                        VALUES ({0},"{1}","{2}","{3}","{4}")"""
-            sql = sql.format(time, user, event_type, content, tagged_str)
-            
-            cursor.execute(sql)
-            
-        self.__conn.commit()
         pass
+ 
+    @staticmethod
+    def getEpochTimeStamp(time_dt):
+        '''
+        Converts the time to Unix Epoch time.
+        
+        Returns an int of the epoch time.
+        time_dt should be a datetime structure already in UTC timezone.
+        '''
+        
+        import calendar
+        
+        time_struct = time_dt.timetuple()
+        timestamp = calendar.timegm(time_struct)
+        return int(timestamp)
+        pass
+
     
     def __ReWrapEvents(self, rows):
         '''
@@ -142,8 +150,7 @@ class LineLogDB(object):
     def __UpdateTableInfo(self, table_name, created, first_event, last_event, count):
         cursor = self.__conn.cursor()
         
-        sql = """SELECT * FROM table_info WHERE tbl_name='{0}'""".format(table_name)
-        cursor.execute(sql)
+        cursor.execute("SELECT * FROM table_info WHERE tbl_name = :table_name", {'table_name': table_name})
 
         bundle = (table_name, created, first_event, last_event, count)        
         # UPDATE the row if its already there otherwise INSERT
@@ -167,61 +174,18 @@ class LineLogDB(object):
         last_event = linelog.getLastEventDate()
         
         # Convert the times to epoch
-        created = self.__getEpochTimeStamp(created)
-        first_event = self.__getEpochTimeStamp(first_event)
-        last_event = self.__getEpochTimeStamp(last_event)
+        created = self.getEpochTimeStamp(created)
+        first_event = self.getEpochTimeStamp(first_event)
+        last_event = self.getEpochTimeStamp(last_event)
         
         return (created, first_event, last_event)
         pass
-    
-    def __gatherRowValuesFromEvent(self, event):
-        '''
-        Collects the needed information for a row in the table log, from the supplied Event
         
-        Returns the data in a tuple in following order:
-            time: Time of the event as epoch in an integer
-            user: The username of the person who generated the event
-            event_type: String representing the event type
-            content: For MessageEvents this is the untagged message string.
-                     For InviteEvents this is will hold the invited_user's name in a JSON object.
-                     For ChangeGroup..Events this will hold the new group name in a JSON object.
-                     This data is returned in a JSON String
-            tagged_str: For message events this holds the message after its been Part-Of-Speech tagged
-        '''
-        time = self.__getEpochTimeStamp(event.getTime())
-        user = event.getUser()
-        event_type = event.getEventType()
-        content = ""
-        tagged_str = ""
-        
-        if type(event) is MessageEvent:
-            content = event.getMessage()
-            tagged_str = nltk.pos_tag(word_tokenize(content))
-        elif event.hasJSONContent():
-            content = event.json_out()
-        
-        return (time, user, event_type, content, tagged_str)
-    
-    def __getEpochTimeStamp(self, time_dt):
-        '''
-        Converts the time to Unix Epoch time.
-        
-        Returns an int of the epoch time.
-        time_dt should be a datetime structure already in UTC timezone.
-        '''
-        
-        import calendar
-        
-        time_struct = time_dt.timetuple()
-        timestamp = calendar.timegm(time_struct)
-        return int(timestamp)
-        pass
-    
     def __isNewerLog(self, linelog):
         cursor = self.__conn.cursor()
         
         time_str = linelog.getLogTimeStamp() 
-        timestamp = self.__getEpochTimeStamp(time_str)
+        timestamp = self.getEpochTimeStamp(time_str)
         
         # Grab the timestamp for when the linelog was created
         if self.__logTableExists():
@@ -262,6 +226,71 @@ class LineLogDB(object):
         cursor.execute(sql)
         self.__conn.commit()        
     
+class ConverterThread(QtCore.QThread):
+    
+    def __init__(self, db_file, linelog, progress, finish):
+        super(ConverterThread, self).__init__()
+        
+        self.db_file = db_file
+        self.linelog = linelog
+        self.__progressCallback = progress
+        self.__finishCallback = finish
+        
+    def run(self):
+        self.__conn = sqlite3.connect(self.db_file)        
+        self.cursor = self.__conn.cursor()
+        
+        progressCount = 0
+        progressMax = self.linelog.getEventCount()
+        for event in self.linelog.getEvents():
+            progressCount += 1
+            self.__updateProgress("Converting to SQL DB", progressCount, progressMax)
+            
+            time, user, event_type, content, tagged_str = self.__gatherRowValuesFromEvent(event)
+                        
+            try:
+                self.cursor.execute("INSERT INTO log (time, user, event_type, content, content_pos_tag) VALUES(:time, :user, :type , :content, :tag)",
+                               {'time': time, 'user': user, 'type': event_type, 'content': content, 'tag': str(tagged_str)}) 
+            except Exception as  e:
+                print e
+        
+        self.__conn.commit()
+        self.__finishCallback()
+
+    def __gatherRowValuesFromEvent(self, event):
+        '''
+        Collects the needed information for a row in the table log, from the supplied Event
+        
+        Returns the data in a tuple in following order:
+            time: Time of the event as epoch in an integer
+            user: The username of the person who generated the event
+            event_type: String representing the event type
+            content: For MessageEvents this is the untagged message string.
+                     For InviteEvents this is will hold the invited_user's name in a JSON object.
+                     For ChangeGroupEvents this will hold the new group name in a JSON object.
+                     This data is returned in a JSON String
+            tagged_str: For message events this holds the message after its been Part-Of-Speech tagged
+        '''
+        time = LineLogDB.getEpochTimeStamp(event.getTime())
+        user = event.getUser()
+        event_type = event.getEventType()
+        content = ""
+        tagged_str = ""
+        
+        if type(event) is MessageEvent:
+            content = unicode(event.getMessage())
+            try:
+                tagged_str = nltk.pos_tag(word_tokenize(content))
+            except UnicodeDecodeError:
+                tagged_str = ""
+                
+        elif event.hasJSONContent():
+            content = event.json_out()
+        
+        return (time, user, event_type, content, tagged_str)
+
     def __updateProgress(self, msg, cur, finish):
         if self.__progressCallback:
-            self.__progressCallback(msg, cur, finish)
+            self.__progressCallback.update(msg, cur, finish)
+
+        

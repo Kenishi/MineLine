@@ -4,7 +4,6 @@ Created on Mar 24, 2014
 @author: Kei
 '''
 import unittest
-import sqlite3
 import os
 from mineline.LineLogDB import LineLogDB
 from mineline.LineLog import LineLog
@@ -18,15 +17,19 @@ class Test(unittest.TestCase):
     def testCanAddLineLog_newer(self):
         ''' Test that we can add a small NEW LineLog to DB and retrieve the events '''
         
+        import datetime, pytz
+        
         # Setup - Create Mock LineLog
-        msg_list = [MessageEvent("i am ok", "2014/01/01 12:00", "Test Message 1"),
-                    MessageEvent("i am ok", "2014/01/01 12:01", "Test Message 2")]
         
-        '''Due to no pre-processing, times are assumed to already be converted to UTC'''
-        expectedTime = ["2014/01/01 12:00 UTC", "2014/01/01 12:01 UTC"]
+        event1_dt = pytz.utc.localize(datetime.datetime.strptime("2014/01/01 12:00 UTC", "%Y/%m/%d %H:%M %Z"))
+        event2_dt = pytz.utc.localize(datetime.datetime.strptime("2014/01/01 12:01 UTC", "%Y/%m/%d %H:%M %Z"))
         
-        linelog = LineLog(msg_list, "2014/01/02 13:00")
+        msg_list = [MessageEvent("i am ok", event1_dt, "Test Message 1"),
+                    MessageEvent("i am ok", event2_dt, "Test Message 2")]
         
+        savedTime = datetime.datetime.strptime("2014/01/02 13:00 UTC", "%Y/%m/%d %H:%M %Z")
+        
+        linelog = LineLog(msg_list, savedTime)
         logDB = LineLogDB(self.TestDBPath)
 
         # Exercise
@@ -34,16 +37,16 @@ class Test(unittest.TestCase):
         events = logDB.getEvents(events=[MessageEvent])        
         
         # Test
-        for x in range(2):
-            # Have to test using function calls due to class type mismatch
-            self.assertEqual(msg_list[x].getUser(),events[x].getUser())
-            self.assertEqual(msg_list[x].getMessage(),events[x].getMessage())
-            self.assertEqual(expectedTime[x], events[x].getTime())
-            self.assertEqual(msg_list[x].getEventType(),events[x].getEventType())
+        try:
+            for x in range(2):
+                # Have to test using function calls due to class type mismatch
+                self.assertEqual(msg_list[x].getUser(),events[x].getUser())
+                self.assertEqual(msg_list[x].getMessage(),events[x].getMessage())
+                self.assertEqual(msg_list[x].getTimeString(), events[x].getTimeString())
+                self.assertEqual(msg_list[x].getEventType(),events[x].getEventType())
+        finally:
+            os.remove(self.TestDBPath)
         
-        # Clean-up
-        os.remove(self.TestDBPath)
-    
     def testStickerEventDB(self):
         ''' Test that normal events like Sticker/Photo/Audio, return proper info when using fromRowResult() '''
         # Setup
@@ -53,7 +56,7 @@ class Test(unittest.TestCase):
         event = StickerEventDB.fromRowResult(row)
         user = event.getUser()
         eventtype = event.getEventType()
-        time_str = event.getTime()
+        time_str = event.getTimeString()
         time_epoch = event.getTimeEpoch()
         
         # Test
@@ -71,7 +74,7 @@ class Test(unittest.TestCase):
         # Exercise
         event = MessageEventDB.fromRowResult(row)
         user = event.getUser()
-        time_str = event.getTime()
+        time_str = event.getTimeString()
         time_epoch = event.getTimeEpoch()
         eventtype = event.getEventType()
         msg = event.getMessage()
@@ -81,7 +84,7 @@ class Test(unittest.TestCase):
         self.assertEqual(user, row['user'])
         self.assertEqual(time_epoch, row['time'])
         self.assertEqual(eventtype, "MESSAGE")
-        self.assertEqual(time_str, "2014/04/23 19:28")
+        self.assertEqual(time_str, "2014/04/23 19:28 UTC")
         self.assertEqual(msg, row['content'])
         self.assertEqual(msg_tag, row['content_pos_tag'])
         
@@ -89,7 +92,10 @@ class Test(unittest.TestCase):
         ''' Test that we should be able to create a DB '''
         
         # Setup & Exercise
-        os.remove(self.TestDBPath)
+        try:
+            os.remove(self.TestDBPath)
+        except Exception:
+            pass
         logDB = LineLogDB(self.TestDBPath)
         
         # Test
